@@ -1,0 +1,6 @@
+We got the program to work, but we experienced an issue
+    that Camera 2 (Appa's external webcam) does not detect the car directly,
+    but rather that it detects after a set time after webcam #1 detects the
+    car.
+
+Date: 9/24/2024
