@@ -1,1 +1,1 @@
-Robot at 50%: 1.67 ft/s about 1.1386361 mph
+Robot at 50%: 140 in/s about 0.795455 mph
