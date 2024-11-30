@@ -4,6 +4,8 @@ import openpyxl
 import geocoder
 import numpy as np
 from datetime import timedelta
+from sklearn.cluster import DBSCAN  # Import DBSCAN from sklearn
+
 # Static distance between two cameras in meters (1 inch = 0.0254 meters, 64 inches)
 DISTANCE_BETWEEN_CAMERAS_METERS = 64.0 * 0.0254
 # Static actual speed for comparison (mph)
@@ -51,21 +53,30 @@ def detect_car(camera, window_name, scale_factor=1.1, min_neighbors=2):
     return None, None, None
 
 
-# Function to detect the primary color of the car
+# Function to detect the primary color of the car using DBSCAN
 def detect_primary_color(frame, car_coordinates):
     (x, y, w, h) = car_coordinates
     car_image = frame[y:y + h, x:x + w]
 
     # Resize for faster processing
     resized_image = cv2.resize(car_image, (64, 64), interpolation=cv2.INTER_AREA)
-    pixels = np.float32(resized_image.reshape(-1, 3))
+    pixels = resized_image.reshape(-1, 3)
 
-    # Use k-means clustering to detect the most dominant color
-    n_colors = 1
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, 0.1)
-    _, labels, palette = cv2.kmeans(pixels, n_colors, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    # Normalize pixel values to the range [0, 1]
+    pixels_normalized = pixels / 255.0
 
-    dominant_color = palette[0].astype(int)
+    # Apply DBSCAN to find color clusters
+    dbscan = DBSCAN(eps=0.1, min_samples=50)  # eps is the distance between points, min_samples is the minimum cluster size
+    labels = dbscan.fit_predict(pixels_normalized)
+
+    # Get the most common label (excluding noise points labeled as -1)
+    unique_labels, counts = np.unique(labels[labels != -1], return_counts=True)
+    if len(unique_labels) == 0:
+        return np.array([0, 0, 0])  # Return black if no valid clusters are found
+
+    dominant_label = unique_labels[np.argmax(counts)]
+    dominant_color = pixels[labels == dominant_label].mean(axis=0).astype(int)
+
     return dominant_color
 
 
@@ -110,6 +121,7 @@ try:
         if timestamp_2 is None:
             timestamp_2, camera_2_frame, car_2_coords = detect_car(camera_2, "Camera 2", scale_factor=1.14,
                                                                    min_neighbors=5)
+
         # Check if one camera detected the car but the other did not within 8 seconds
         if (timestamp_1 and not timestamp_2 and (datetime.now() - timestamp_1).total_seconds() >= 8) or \
                 (timestamp_2 and not timestamp_1 and (datetime.now() - timestamp_2).total_seconds() >= 8):
@@ -144,7 +156,7 @@ try:
             speed_mph = calculate_speed(time_diff)
             accuracy = calculate_accuracy(speed_mph)
 
-            # Detect car's color
+            # Detect car's color using DBSCAN
             dominant_color = detect_primary_color(camera_1_frame if timestamp_1 < timestamp_2 else camera_2_frame,
                                                   car_1_coords if timestamp_1 < timestamp_2 else car_2_coords)
 
@@ -175,4 +187,3 @@ finally:
     camera_1.release()
     camera_2.release()
     cv2.destroyAllWindows()
-
