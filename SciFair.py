@@ -1,9 +1,8 @@
 import cv2
-from datetime import datetime
+from datetime import datetime, timedelta
 import openpyxl
 import geocoder
 import numpy as np
-from datetime import timedelta
 from sklearn.cluster import DBSCAN  # Import DBSCAN from sklearn
 
 # Static distance between two cameras in meters (1 inch = 0.0254 meters, 64 inches)
